@@ -96,7 +96,7 @@ jobs:
                                           # Parse the URL to replace the end part
                                           url_parts = server['url'].split('/')
                                           # Replace the last part with the new suffix
-                                          if len(url_parts) > 3:  # Make sure there's enough parts to modify
+                                          if len(url_parts) > 2:  # Make sure there's enough parts to modify
                                               url_parts[-1] = "${{ github.event.inputs.new_url_suffix }}"
                                               server['url'] = '/'.join(url_parts)
                                               modified = True
