@@ -23,8 +23,6 @@ on:
 jobs:
   modify-openapi-files:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
