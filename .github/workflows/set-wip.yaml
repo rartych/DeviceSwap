@@ -39,10 +39,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyyaml
 
-      - name: Create branch for PR
-        run: |
-          git checkout -b ${{ github.event.inputs.pr_branch }}
-
       - name: Modify OpenAPI YAML files
         run: |
           python - <<EOF
