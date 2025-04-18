@@ -49,7 +49,7 @@ jobs:
           import re
 
           # Directory containing API files
-          api_dir = './code/AP_definitionsI'
+          api_dir = './code/AP_definitions'
 
           # Ensure API directory exists
           if not os.path.exists(api_dir):
