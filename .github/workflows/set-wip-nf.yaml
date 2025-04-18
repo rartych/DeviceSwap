@@ -67,7 +67,7 @@ jobs:
           def yaml_dump(data, file_path):
               yaml = YAML()
               yaml.preserve_quotes = True
-              yaml.indent(mapping=2, sequence=4, offset=2)
+              # yaml.indent(mapping=2, sequence=4, offset=2)
               with open(file_path, 'w') as file:
                   yaml.dump(data, file)
 
