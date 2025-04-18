@@ -1,0 +1,154 @@
+name: OpenAPI Files Modification
+
+on:
+  workflow_dispatch:
+    inputs:
+      new_version:
+        description: 'New API version to set'
+        required: true
+        default: 'wip'
+      new_url_suffix:
+        description: 'New suffix for servers.url'
+        required: true
+        default: 'vwip'
+      base_branch:
+        description: 'Branch to create PR against'
+        required: true
+        default: 'main'
+      pr_branch:
+        description: 'Branch name for the PR'
+        required: true
+        default: 'update-openapi-files'
+
+jobs:
+  modify-openapi-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Create branch for PR
+        run: |
+          git checkout -b ${{ github.event.inputs.pr_branch }}
+
+      - name: Modify OpenAPI YAML files
+        run: |
+          python - <<EOF
+          import os
+          import yaml
+          import re
+
+          # Directory containing API files
+          api_dir = './code/AP_definitionsI'
+
+          # Ensure API directory exists
+          if not os.path.exists(api_dir):
+              print(f"Error: {api_dir} directory not found!")
+              exit(1)
+
+          # Track modified files
+          modified_files = []
+
+          # Function to safely load YAML with preserved order and comments
+          def yaml_load(file_path):
+              with open(file_path, 'r') as file:
+                  return yaml.safe_load(file.read())
+
+          # Function to safely dump YAML preserving formatting as much as possible
+          def yaml_dump(data, file_path):
+              with open(file_path, 'w') as file:
+                  yaml.dump(data, file, default_flow_style=False, sort_keys=False)
+
+          # Walk through all files in the API directory
+          for root, dirs, files in os.walk(api_dir):
+              for file in files:
+                  if file.endswith(('.yaml', '.yml')):
+                      file_path = os.path.join(root, file)
+                      print(f"Processing {file_path}")
+                      
+                      try:
+                          # Load YAML content
+                          yaml_content = yaml_load(file_path)
+                          
+                          # Check if it's an OpenAPI spec file
+                          if isinstance(yaml_content, dict) and 'openapi' in yaml_content:
+                              modified = False
+                              
+                              # Modify version
+                              if 'info' in yaml_content and 'version' in yaml_content['info']:
+                                  yaml_content['info']['version'] = "${{ github.event.inputs.new_version }}"
+                                  modified = True
+                              
+                              # Modify servers.url endings
+                              if 'servers' in yaml_content and isinstance(yaml_content['servers'], list):
+                                  for server in yaml_content['servers']:
+                                      if 'url' in server:
+                                          # Parse the URL to replace the end part
+                                          url_parts = server['url'].split('/')
+                                          # Replace the last part with the new suffix
+                                          if len(url_parts) > 3:  # Make sure there's enough parts to modify
+                                              url_parts[-1] = "${{ github.event.inputs.new_url_suffix }}"
+                                              server['url'] = '/'.join(url_parts)
+                                              modified = True
+                              
+                              # Save changes if any modifications were made
+                              if modified:
+                                  yaml_dump(yaml_content, file_path)
+                                  modified_files.append(file_path)
+                                  print(f"Modified {file_path}")
+                      except Exception as e:
+                          print(f"Error processing {file_path}: {e}")
+
+          # Print summary
+          if modified_files:
+              print(f"\nSuccessfully modified {len(modified_files)} OpenAPI files:")
+              for file in modified_files:
+                  print(f"- {file}")
+          else:
+              print("\nNo OpenAPI files were modified. Check if the files exist and have the expected structure.")
+          EOF
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "changes_detected=true" >> $GITHUB_OUTPUT
+          else
+            echo "changes_detected=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add -A
+          git commit -m "Update OpenAPI files: version to ${{ github.event.inputs.new_version }} and servers.url suffix to ${{ github.event.inputs.new_url_suffix }}"
+          git push --set-upstream origin ${{ github.event.inputs.pr_branch }}
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changes_detected == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.inputs.base_branch }}
+          branch: ${{ github.event.inputs.pr_branch }}
+          title: "Update OpenAPI files: version and URL suffix"
+          body: |
+            This PR updates all OpenAPI YAML files in the API folder:
+            
+            - Sets `info.version` to `${{ github.event.inputs.new_version }}`
+            - Updates the ending of `servers.url` to `${{ github.event.inputs.new_url_suffix }}`
+            
+            This change was automatically generated by the OpenAPI Files Modification workflow.
+          draft: false
