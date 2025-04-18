@@ -127,19 +127,11 @@ jobs:
             echo "changes_detected=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit and push changes
-        if: steps.check_changes.outputs.changes_detected == 'true'
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add -A
-          git commit -m "Update OpenAPI files: version to ${{ github.event.inputs.new_version }} and servers.url suffix to ${{ github.event.inputs.new_url_suffix }}"
-          git push --set-upstream origin ${{ github.event.inputs.pr_branch }}
-
       - name: Create Pull Request
         if: steps.check_changes.outputs.changes_detected == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
+          commit-message: Update OpenAPI files: version to ${{ github.event.inputs.new_version }} and servers.url suffix to ${{ github.event.inputs.new_url_suffix }}
           token: ${{ secrets.GITHUB_TOKEN }}
           base: ${{ github.event.inputs.base_branch }}
           branch: ${{ github.event.inputs.pr_branch }}
